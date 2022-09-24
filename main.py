@@ -12,28 +12,26 @@ from moviepy.editor import VideoFileClip
 from moviepy.video.io.ImageSequenceClip import ImageSequenceClip
 from PIL import Image
 
-stages = {
-    1: "Saving audio",
-    2: "Splitting video into frames",
-    3: "Converting frames",
-    4: "Saving video"
-}
-
 
 def main():
+    # Start message
     if not confirm_working('Welcome to the "Video in video" program! I’ll warn you right away that video processing'
                            ' can take a lot of time, but progress will be saved at certain stages.'):
         write_to_console("The program has been interrupted.")
         return
+
+    # Check for original video
     if not os.path.isfile("original.mp4"):
         write_to_console('The system cannot detect the original video. Please put in the folder with the program'
                          ' processed video and rename it to "original.mp4"')
         return
 
+    # Checking for a save
     progress_stage = 0
     custom_fps = 0
     if os.path.isfile("save_file.json"):
         if not os.path.exists("materials"):
+            # If there is a save file, but there is no folder with materials, we start all over again
             if not confirm_working('ATTENTION! The folder with the saved progress was not found, so '
                                    'the program will start the entire creation process again.'):
                 write_to_console("The program has been interrupted.")
@@ -41,11 +39,13 @@ def main():
         else:
             file = open("save_file.json")
             data = json.load(file)
+            # We invite the user to continue progress
             if confirm_working("A save file was found while the program was running. "
                                "Do you want to continue from the saved stage?", True):
                 progress_stage = data["progress_stage"]
                 custom_fps = int(data["fps"])
                 stable = os.path.exists("materials")
+                # Checking if everything is there to continue progress
                 if progress_stage == 2 and stable:
                     stable = os.path.isfile("materials/audio.mp3")
                 elif progress_stage == 3 and stable:
@@ -53,16 +53,26 @@ def main():
                 elif progress_stage == 4 and stable:
                     stable = os.path.isfile("materials/audio.mp3") and os.path.exists("materials/clips") \
                              and len(glob.glob("materials/clips/raw**.jpg")) == 0
+                # If not, we talk about it.
                 if not stable:
+                    # dict for next message
+                    stages = {
+                        1: "Saving audio",
+                        2: "Splitting video into frames",
+                        3: "Converting frames",
+                        4: "Saving video"
+                    }
                     write_to_console('When checking the available files in the "materials" folder, '
                                      f'some of the files needed for the "{stages[progress_stage]}" stage were '
                                      'not found, so the program was interrupted. '
                                      '\nPlease either check for the correct files in the "materials" '
                                      'folder, or start over.')
                     return
+            # If the user wants to start over, first delete the old files
             elif os.path.exists("materials"):
                 write_to_console("Removing old materials...")
                 clean_thrash("materials")
+    # If there are no saves, but the folder exists, delete all files from the folder
     elif os.path.exists("materials"):
         if os.listdir("materials"):
             if confirm_working('ATTENTION! Files already exist in the "materials" folder! '
@@ -72,12 +82,15 @@ def main():
             else:
                 write_to_console("The program has been interrupted.")
                 return
+    # If there is nothing, just create a folder
     else:
         os.mkdir("materials")
 
+    # Checking if the folder exists (just in case)
     if not os.path.exists("materials"):
         os.mkdir("materials")
 
+    # If there was no save, then we will find out the desired fps
     if custom_fps == 0:
         write_to_console("Enter the desired fps of the final video.", True)
         while True:
@@ -89,17 +102,20 @@ def main():
             except ValueError:
                 print("Enter the correct answer (integer greater than zero)")
 
+    # Extract audio to separate file
     if progress_stage <= 1:
         progress_stage = 1
         save_json(progress_stage, custom_fps)
         save_audio()
 
+    # Extract video frames into separate files
     if progress_stage <= 2:
         progress_stage = 2
         save_json(progress_stage, custom_fps)
         load_clips("original.mp4", custom_fps)
         write_to_console("Original video has been splitted.")
 
+    # Video frame conversion
     if progress_stage <= 3:
         progress_stage = 3
         save_json(progress_stage, custom_fps)
@@ -110,6 +126,7 @@ def main():
             write_to_console(f"Converting clips to image in image...\n{count}/{length}")
         write_to_console(f"All clips successfully converted.")
 
+    # Creating the final video
     if progress_stage <= 4:
         progress_stage = 4
         save_json(progress_stage, custom_fps)
@@ -118,7 +135,7 @@ def main():
     write_to_console("Video saved.")
 
 
-
+# Removing all files from the "materials" folder
 def clean_thrash(path):
     dirlist = [f for f in os.listdir(path)]
     for f in dirlist:
@@ -131,6 +148,7 @@ def clean_thrash(path):
             os.remove(fullname)
 
 
+# Create video from individual frames and audio and save it
 def save_video(image_folder, audio_file, fps):
     image_files = [os.path.join(image_folder, img)
                    for img in os.listdir(image_folder)
@@ -144,6 +162,7 @@ def save_video(image_folder, audio_file, fps):
     clip.write_videofile("result.mp4")
 
 
+# Formatting timedelta objects, remove microseconds and keep milliseconds
 def format_timedelta(td):
     result = str(td)
     try:
@@ -158,6 +177,7 @@ def format_timedelta(td):
     return f"{result}.{ms}".replace(":", "-")
 
 
+# Function that returns a list of durations in which frames should be saved
 def get_saving_frames_durations(cap, saving_fps):
     s = []
     clip_duration = cap.get(cv2.CAP_PROP_FRAME_COUNT) / cap.get(cv2.CAP_PROP_FPS)
@@ -166,6 +186,7 @@ def get_saving_frames_durations(cap, saving_fps):
     return s
 
 
+# Split video into separate frames and save these frames to "clips" folder
 def load_clips(video_file, custom_fps):
     filename = "materials/clips"
 
@@ -199,12 +220,14 @@ def load_clips(video_file, custom_fps):
     write_to_console(f"Splitting the original video into frames... \n {count}/{length}")
 
 
+# Get video fps
 def get_fps(video_file, custom_fps):
     cap = cv2.VideoCapture(video_file)
     fps = cap.get(cv2.CAP_PROP_FPS)
     return min(fps, custom_fps)
 
 
+# Convert an image (frame) to such an image, but already consisting of smaller images
 def convert_to_image_in_image(filename):
     original = Image.open(filename)
     image_for_pixel = Image.open(filename)
@@ -241,6 +264,7 @@ def convert_to_image_in_image(filename):
     original.save(filename.replace("raw", "", 1))
 
 
+# Function for cropping the image in the center
 def crop_center(pil_img: Image, crop_width: int, crop_height: int) -> Image:
     img_width, img_height = pil_img.size
     return pil_img.crop(((img_width - crop_width) // 2,
@@ -249,6 +273,7 @@ def crop_center(pil_img: Image, crop_width: int, crop_height: int) -> Image:
                          (img_height + crop_height) // 2))
 
 
+# Save audio from video to separate file
 def save_audio():
     write_to_console("Audio saving...", True)
     videoclip = VideoFileClip("original.mp4")
@@ -259,6 +284,7 @@ def save_audio():
     write_to_console("Audio saved.")
 
 
+# Write something to the console
 def write_to_console(text: str, end=False) -> None:
     os.system('cls')
     if end:
@@ -267,6 +293,7 @@ def write_to_console(text: str, end=False) -> None:
         print(text, end='')
 
 
+# Confirmation of any action
 def confirm_working(text: str, full=False) -> bool:
     os.system('cls')
     if full:
@@ -283,6 +310,7 @@ def confirm_working(text: str, full=False) -> bool:
             print("Enter the correct answer (n - no, y - yes)")
 
 
+# Overwrite file with save
 def save_json(progress_stage, custom_fps):
     data = {
         "progress_stage": progress_stage,
