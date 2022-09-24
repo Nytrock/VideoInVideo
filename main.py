@@ -71,14 +71,14 @@ def main():
             # If the user wants to start over, first delete the old files
             elif os.path.exists("materials"):
                 write_to_console("Removing old materials...")
-                clean_thrash("materials")
+                clean_trash("materials")
     # If there are no saves, but the folder exists, delete all files from the folder
     elif os.path.exists("materials"):
         if os.listdir("materials"):
             if confirm_working('ATTENTION! Files already exist in the "materials" folder! '
                                'For the correct operation of the program, it will be cleared.'):
                 write_to_console("Removing all unnecessary files...")
-                clean_thrash("materials")
+                clean_trash("materials")
             else:
                 write_to_console("The program has been interrupted.")
                 return
@@ -136,12 +136,12 @@ def main():
 
 
 # Removing all files from the "materials" folder
-def clean_thrash(path):
+def clean_trash(path: str) -> None:
     dirlist = [f for f in os.listdir(path)]
     for f in dirlist:
         fullname = os.path.join(path, f)
         if os.path.isdir(fullname):
-            clean_thrash(fullname)
+            clean_trash(fullname)
             os.rmdir(fullname)
         else:
             os.chmod(fullname, stat.S_IWRITE)
@@ -149,7 +149,7 @@ def clean_thrash(path):
 
 
 # Create video from individual frames and audio and save it
-def save_video(image_folder, audio_file, fps):
+def save_video(image_folder: str, audio_file: str, fps: int) -> None:
     image_files = [os.path.join(image_folder, img)
                    for img in os.listdir(image_folder)
                    if img.endswith(".jpg")]
@@ -163,7 +163,7 @@ def save_video(image_folder, audio_file, fps):
 
 
 # Formatting timedelta objects, remove microseconds and keep milliseconds
-def format_timedelta(td):
+def format_timedelta(td: timedelta) -> str:
     result = str(td)
     try:
         result, ms = result.split(".")
@@ -178,7 +178,7 @@ def format_timedelta(td):
 
 
 # Function that returns a list of durations in which frames should be saved
-def get_saving_frames_durations(cap, saving_fps):
+def get_saving_frames_durations(cap: cv2.VideoCapture, saving_fps: int) -> list:
     s = []
     clip_duration = cap.get(cv2.CAP_PROP_FRAME_COUNT) / cap.get(cv2.CAP_PROP_FPS)
     for i in numpy.arange(0, clip_duration, 1 / saving_fps):
@@ -187,7 +187,7 @@ def get_saving_frames_durations(cap, saving_fps):
 
 
 # Split video into separate frames and save these frames to "clips" folder
-def load_clips(video_file, custom_fps):
+def load_clips(video_file: str, custom_fps: int) -> None:
     filename = "materials/clips"
 
     if not os.path.isdir(filename):
@@ -221,14 +221,14 @@ def load_clips(video_file, custom_fps):
 
 
 # Get video fps
-def get_fps(video_file, custom_fps):
+def get_fps(video_file: str, custom_fps: int) -> int:
     cap = cv2.VideoCapture(video_file)
     fps = cap.get(cv2.CAP_PROP_FPS)
     return min(fps, custom_fps)
 
 
 # Convert an image (frame) to such an image, but already consisting of smaller images
-def convert_to_image_in_image(filename):
+def convert_to_image_in_image(filename: str) -> None:
     original = Image.open(filename)
     image_for_pixel = Image.open(filename)
 
@@ -274,7 +274,7 @@ def crop_center(pil_img: Image, crop_width: int, crop_height: int) -> Image:
 
 
 # Save audio from video to separate file
-def save_audio():
+def save_audio() -> None:
     write_to_console("Audio saving...", True)
     videoclip = VideoFileClip("original.mp4")
     audioclip = videoclip.audio
@@ -311,7 +311,7 @@ def confirm_working(text: str, full=False) -> bool:
 
 
 # Overwrite file with save
-def save_json(progress_stage, custom_fps):
+def save_json(progress_stage: int, custom_fps: int) -> None:
     data = {
         "progress_stage": progress_stage,
         "fps": custom_fps
@@ -319,5 +319,6 @@ def save_json(progress_stage, custom_fps):
     json.dump(data, open("save_file.json", "w", encoding="utf-8"))
 
 
+# Start
 if __name__ == '__main__':
     main()
