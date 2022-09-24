@@ -29,6 +29,7 @@ def main():
     # Checking for a save
     progress_stage = 0
     custom_fps = 0
+    have_audio = True
     if os.path.isfile("save_file.json"):
         if not os.path.exists("materials"):
             # If there is a save file, but there is no folder with materials, we start all over again
@@ -44,15 +45,17 @@ def main():
                                "Do you want to continue from the saved stage?", True):
                 progress_stage = data["progress_stage"]
                 custom_fps = int(data["fps"])
+                have_audio = data["have_audio"]
                 stable = os.path.exists("materials")
                 # Checking if everything is there to continue progress
                 if progress_stage == 2 and stable:
-                    stable = os.path.isfile("materials/audio.mp3")
+                    stable = os.path.isfile("materials/audio.mp3") or not have_audio
                 elif progress_stage == 3 and stable:
-                    stable = os.path.isfile("materials/audio.mp3") and os.path.exists("materials/clips")
+                    stable = (os.path.isfile("materials/audio.mp3") or not have_audio) and\
+                             os.path.exists("materials/clips")
                 elif progress_stage == 4 and stable:
-                    stable = os.path.isfile("materials/audio.mp3") and os.path.exists("materials/clips") \
-                             and len(glob.glob("materials/clips/raw**.jpg")) == 0
+                    stable = (os.path.isfile("materials/audio.mp3") or not have_audio) and \
+                             os.path.exists("materials/clips") and len(glob.glob("materials/clips/raw**.jpg")) == 0
                 # If not, we talk about it.
                 if not stable:
                     # dict for next message
@@ -105,20 +108,22 @@ def main():
     # Extract audio to separate file
     if progress_stage <= 1:
         progress_stage = 1
-        save_json(progress_stage, custom_fps)
-        save_audio()
+        save_json(progress_stage, custom_fps, have_audio)
+        if not save_audio():
+            have_audio = False
+            save_json(progress_stage, custom_fps, have_audio)
 
     # Extract video frames into separate files
     if progress_stage <= 2:
         progress_stage = 2
-        save_json(progress_stage, custom_fps)
+        save_json(progress_stage, custom_fps, have_audio)
         load_clips("original.mp4", custom_fps)
         write_to_console("Original video has been splitted.")
 
     # Video frame conversion
     if progress_stage <= 3:
         progress_stage = 3
-        save_json(progress_stage, custom_fps)
+        save_json(progress_stage, custom_fps, have_audio)
         length = len(glob.glob("materials/clips/raw**.jpg"))
         write_to_console(f"Converting clips to image in image...\n{0}/{length}")
         for count, name in enumerate(glob.glob("materials/clips/raw**.jpg")):
@@ -129,9 +134,9 @@ def main():
     # Creating the final video
     if progress_stage <= 4:
         progress_stage = 4
-        save_json(progress_stage, custom_fps)
+        save_json(progress_stage, custom_fps, have_audio)
         write_to_console("")
-        save_video("materials/clips", "materials/audio.mp3", get_fps("original.mp4", custom_fps))
+        save_video("materials/clips", "materials/audio.mp3", get_fps("original.mp4", custom_fps), have_audio)
     write_to_console("Video saved.")
 
 
@@ -149,15 +154,16 @@ def clean_trash(path: str) -> None:
 
 
 # Create video from individual frames and audio and save it
-def save_video(image_folder: str, audio_file: str, fps: int) -> None:
+def save_video(image_folder: str, audio_file: str, fps: int, have_audio: bool) -> None:
     image_files = [os.path.join(image_folder, img)
                    for img in os.listdir(image_folder)
                    if img.endswith(".jpg")]
     print("Creating video...")
     clip = ImageSequenceClip(image_files, fps=fps)
-    print("Adding audio...")
-    audio_clip = AudioFileClip(audio_file)
-    clip = clip.set_audio(audio_clip)
+    if have_audio:
+        print("Adding audio...")
+        audio_clip = AudioFileClip(audio_file)
+        clip = clip.set_audio(audio_clip)
     print("Write to file...")
     clip.write_videofile("result.mp4")
 
@@ -274,14 +280,18 @@ def crop_center(pil_img: Image, crop_width: int, crop_height: int) -> Image:
 
 
 # Save audio from video to separate file
-def save_audio() -> None:
+def save_audio() -> bool:
     write_to_console("Audio saving...", True)
     videoclip = VideoFileClip("original.mp4")
     audioclip = videoclip.audio
-    audioclip.write_audiofile("materials/audio.mp3")
-    audioclip.close()
     videoclip.close()
+    if audioclip.reader is not None:
+        audioclip.write_audiofile("materials/audio.mp3")
+    else:
+        return False
+    audioclip.close()
     write_to_console("Audio saved.")
+    return True
 
 
 # Write something to the console
@@ -311,10 +321,11 @@ def confirm_working(text: str, full=False) -> bool:
 
 
 # Overwrite file with save
-def save_json(progress_stage: int, custom_fps: int) -> None:
+def save_json(progress_stage: int, custom_fps: int, audio: bool) -> None:
     data = {
         "progress_stage": progress_stage,
-        "fps": custom_fps
+        "fps": custom_fps,
+        "have_audio": audio
     }
     json.dump(data, open("save_file.json", "w", encoding="utf-8"))
 
