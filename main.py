@@ -24,6 +24,7 @@ def main():
     if not os.path.isfile("original.mp4"):
         write_to_console('The system cannot detect the original video. Please put in the folder with the program'
                          ' processed video and rename it to "original.mp4"')
+        input()
         return
 
     # Checking for a save
@@ -36,6 +37,7 @@ def main():
             if not confirm_working('ATTENTION! The folder with the saved progress was not found, so '
                                    'the program will start the entire creation process again. Continue? '):
                 write_to_console("The program has been interrupted.")
+                input()
                 return
         else:
             file = open("save_file.json")
@@ -70,6 +72,7 @@ def main():
                                      'not found, so the program was interrupted. '
                                      '\nPlease either check for the correct files in the "materials" '
                                      'folder, or start over.')
+                    input()
                     return
             # If the user wants to start over, first delete the old files
             elif os.path.exists("materials"):
@@ -84,6 +87,7 @@ def main():
                 clean_trash("materials")
             else:
                 write_to_console("The program has been interrupted.")
+                input()
                 return
     # If there is nothing, just create a folder
     else:
@@ -138,6 +142,7 @@ def main():
         write_to_console("")
         save_video("materials/clips", "materials/audio.mp3", get_fps("original.mp4", custom_fps), have_audio)
     write_to_console("Video saved.")
+    input()
 
 
 # Removing all files from the "materials" folder
