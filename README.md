@@ -28,7 +28,22 @@ Due to the limitations of modern screens (and for optimization, of course) the r
 it is impossible to create a video with this resolution format, and it is not necessary, again due to screen limitations. Don't expect every little video to be
 have original resolution.
 
-## Startup instructions
+# Instructions for use
+
+- Download latest release
+
+- Replace the standard video `original.mp4` with the one you want to process, of cource replacing the name of the new file with `original`
+
+- Run `main.exe` and follow application instructions
+
+- Wait. And wait. And wait a little more.  If at the moment with the processing of frames you are tired of waiting, 
+you can artificially interrupt the program, the next time it starts, it will simply continue from where it left off
+
+- If there is a problem with splitting the video into frames, then simply reduce the resolution of the original video
+
+- After the program ends, enjoy the result, seeing how the standard Windows player is not able to open the final video
+
+# Instructions for running the source code
 - Clone the repository
 
 ```shell
@@ -40,13 +55,4 @@ git clone https://github.com/Nytrock/Video_In_Video.git
 pip install -r requirements.txt
 ```
 
-- Replace the standard video `original.mp4` with the one you want to process, of cource replacing the name of the new file with `original`
-
-- Run the program `main.py` and follow the instructions given in the program
-
-- Wait. And wait. And wait a little more.  If at the moment with the processing of frames you are tired of waiting, 
-you can artificially interrupt the program, the next time it starts, it will simply continue from where it left off
-
-- If there is a problem with splitting the video into frames, then simply reduce the resolution of the original video
-
-- After the program ends, enjoy the result, seeing how the standard Windows player is not able to open the final video
+- Do the same thing you would do when working with released application
