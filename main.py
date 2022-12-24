@@ -8,7 +8,7 @@ import stat
 from datetime import timedelta
 
 from moviepy.audio.io.AudioFileClip import AudioFileClip
-from moviepy.editor import VideoFileClip
+from moviepy.video.io.VideoFileClip import VideoFileClip
 from moviepy.video.io.ImageSequenceClip import ImageSequenceClip
 from PIL import Image
 
@@ -16,7 +16,7 @@ from PIL import Image
 def main():
     # Start message
     if not confirm_working('Welcome to the "Video in video" program! I’ll warn you right away that video processing'
-                           ' can take a lot of time, but progress will be saved at certain stages.'):
+                           ' can take a lot of time, but progress will be saved at certain stages. Continue? '):
         write_to_console("The program has been interrupted.")
         return
 
@@ -34,7 +34,7 @@ def main():
         if not os.path.exists("materials"):
             # If there is a save file, but there is no folder with materials, we start all over again
             if not confirm_working('ATTENTION! The folder with the saved progress was not found, so '
-                                   'the program will start the entire creation process again.'):
+                                   'the program will start the entire creation process again. Continue? '):
                 write_to_console("The program has been interrupted.")
                 return
         else:
@@ -42,7 +42,7 @@ def main():
             data = json.load(file)
             # We invite the user to continue progress
             if confirm_working("A save file was found while the program was running. "
-                               "Do you want to continue from the saved stage?", True):
+                               "Do you want to continue from the saved stage?"):
                 progress_stage = data["progress_stage"]
                 custom_fps = int(data["fps"])
                 have_audio = data["have_audio"]
@@ -79,7 +79,7 @@ def main():
     elif os.path.exists("materials"):
         if os.listdir("materials"):
             if confirm_working('ATTENTION! Files already exist in the "materials" folder! '
-                               'For the correct operation of the program, it will be cleared.'):
+                               'For the correct operation of the program, it will be cleared. Continue? '):
                 write_to_console("Removing all unnecessary files...")
                 clean_trash("materials")
             else:
@@ -95,7 +95,7 @@ def main():
 
     # If there was no save, then we will find out the desired fps
     if custom_fps == 0:
-        write_to_console("Enter the desired fps of the final video.", True)
+        write_to_console("Enter the desired fps of the final video.")
         while True:
             try:
                 custom_fps = int(input())
@@ -155,7 +155,7 @@ def clean_trash(path: str) -> None:
 
 # Create video from individual frames and audio and save it
 def save_video(image_folder: str, audio_file: str, fps: int, have_audio: bool) -> None:
-    image_files = [os.path.join(image_folder, img)
+    image_files = [os.path.abspath(os.path.join(image_folder, img))
                    for img in os.listdir(image_folder)
                    if img.endswith(".jpg")]
     print("Creating video...")
@@ -281,35 +281,36 @@ def crop_center(pil_img: Image, crop_width: int, crop_height: int) -> Image:
 
 # Save audio from video to separate file
 def save_audio() -> bool:
-    write_to_console("Audio saving...", True)
+    write_to_console("Audio saving...")
     videoclip = VideoFileClip("original.mp4")
     audioclip = videoclip.audio
-    videoclip.close()
     if audioclip.reader is not None:
         audioclip.write_audiofile("materials/audio.mp3")
     else:
         return False
+    videoclip.close()
     audioclip.close()
     write_to_console("Audio saved.")
     return True
 
 
 # Write something to the console
-def write_to_console(text: str, end=False) -> None:
-    os.system('cls')
-    if end:
-        print(text)
+def write_to_console(text: str) -> None:
+    if os.name == 'nt':
+        x = os.system('cls')
     else:
-        print(text, end='')
+        x = os.system('clear')
+    print(text)
 
 
 # Confirmation of any action
-def confirm_working(text: str, full=False) -> bool:
-    os.system('cls')
-    if full:
-        print(f"{text} (n/y)")
+def confirm_working(text: str) -> bool:
+    if os.name == 'nt':
+        x = os.system('cls')
     else:
-        print(f"{text} Continue? (n/y)")
+        x = os.system('clear')
+
+    print(f"{text} (n/y)")
     while True:
         answer = input()
         if answer == "n":
