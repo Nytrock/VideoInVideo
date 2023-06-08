@@ -30,6 +30,7 @@ def main():
     # Checking for a save
     progress_stage = 0
     custom_fps = 0
+    zoom = 0
     have_audio = True
     if os.path.isfile("save_file.json"):
         if not os.path.exists("materials"):
@@ -47,6 +48,7 @@ def main():
                                "Do you want to continue from the saved stage?"):
                 progress_stage = data["progress_stage"]
                 custom_fps = int(data["fps"])
+                zoom = int(data["zoom"])
                 have_audio = data["have_audio"]
                 stable = os.path.exists("materials")
                 # Checking if everything is there to continue progress
@@ -109,36 +111,48 @@ def main():
             except ValueError:
                 print("Enter the correct answer (integer greater than zero)")
 
+    # If there was no save, then we will find out the zoom
+    if zoom == 0:
+        write_to_console("Enter how much you want to zoom in on the final video (1 - default and min, 10 - max)")
+        while True:
+            try:
+                zoom = int(input())
+                if 10 >= zoom >= 1:
+                    break
+                print("Enter the correct answer (integer between 1 and 10)")
+            except ValueError:
+                print("Enter the correct answer (integer between 1 and 10)")
+
     # Extract audio to separate file
     if progress_stage <= 1:
         progress_stage = 1
-        save_json(progress_stage, custom_fps, have_audio)
+        save_json(progress_stage, custom_fps, have_audio, zoom)
         if not save_audio():
             have_audio = False
-            save_json(progress_stage, custom_fps, have_audio)
+            save_json(progress_stage, custom_fps, have_audio, zoom)
 
     # Extract video frames into separate files
     if progress_stage <= 2:
         progress_stage = 2
-        save_json(progress_stage, custom_fps, have_audio)
+        save_json(progress_stage, custom_fps, have_audio, zoom)
         load_clips("original.mp4", custom_fps)
         write_to_console("Original video has been splitted.")
 
     # Video frame conversion
     if progress_stage <= 3:
         progress_stage = 3
-        save_json(progress_stage, custom_fps, have_audio)
+        save_json(progress_stage, custom_fps, have_audio, zoom)
         length = len(glob.glob("materials/clips/raw**.jpg"))
         write_to_console(f"Converting clips to image in image...\n{0}/{length}")
         for count, name in enumerate(glob.glob("materials/clips/raw**.jpg")):
-            convert_to_image_in_image(name)
+            convert_to_image_in_image(name, zoom)
             write_to_console(f"Converting clips to image in image...\n{count}/{length}")
         write_to_console(f"All clips successfully converted.")
 
     # Creating the final video
     if progress_stage <= 4:
         progress_stage = 4
-        save_json(progress_stage, custom_fps, have_audio)
+        save_json(progress_stage, custom_fps, have_audio, zoom)
         write_to_console("")
         save_video("materials/clips", "materials/audio.mp3", get_fps("original.mp4", custom_fps), have_audio)
     write_to_console("Video saved.")
@@ -239,16 +253,18 @@ def get_fps(video_file: str, custom_fps: int) -> int:
 
 
 # Convert an image (frame) to such an image, but already consisting of smaller images
-def convert_to_image_in_image(filename: str) -> None:
+def convert_to_image_in_image(filename: str, zoom: int) -> None:
     original = Image.open(filename)
     image_for_pixel = Image.open(filename)
 
+    original = crop_center(original, original.size[0] // zoom, original.size[1] // zoom)
     original_width, original_height = original.size
     pixel_image_width, pixel_image_height = image_for_pixel.size
 
-    image_for_pixel = crop_center(image_for_pixel, min(pixel_image_width, pixel_image_height),
-                                  min(pixel_image_width, pixel_image_height))
-    image_for_pixel = image_for_pixel.resize((int(6144 / original_height), int(6144 / original_height)))
+    smallest_size = min(pixel_image_width, pixel_image_height)
+    image_for_pixel = crop_center(image_for_pixel, smallest_size, smallest_size)
+    image_for_pixel = image_for_pixel.resize((min(smallest_size, int(6144 / original_height)),
+                                              min(smallest_size, int(6144 / original_height))))
     pixel_image_width, pixel_image_height = image_for_pixel.size
 
     original = original.convert("RGBA")
@@ -311,9 +327,9 @@ def write_to_console(text: str) -> None:
 # Confirmation of any action
 def confirm_working(text: str) -> bool:
     if os.name == 'nt':
-        x = os.system('cls')
+        os.system('cls')
     else:
-        x = os.system('clear')
+        os.system('clear')
 
     print(f"{text} (n/y)")
     while True:
@@ -327,11 +343,12 @@ def confirm_working(text: str) -> bool:
 
 
 # Overwrite file with save
-def save_json(progress_stage: int, custom_fps: int, audio: bool) -> None:
+def save_json(progress_stage: int, custom_fps: int, audio: bool, zoom: int) -> None:
     data = {
         "progress_stage": progress_stage,
         "fps": custom_fps,
-        "have_audio": audio
+        "have_audio": audio,
+        "zoom": zoom
     }
     json.dump(data, open("save_file.json", "w", encoding="utf-8"))
 
