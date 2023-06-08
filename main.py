@@ -31,6 +31,7 @@ def main():
     progress_stage = 0
     custom_fps = 0
     zoom = 0
+    visible = -1
     have_audio = True
     if os.path.isfile("save_file.json"):
         if not os.path.exists("materials"):
@@ -49,6 +50,7 @@ def main():
                 progress_stage = data["progress_stage"]
                 custom_fps = int(data["fps"])
                 zoom = int(data["zoom"])
+                visible = float(data["visible"])
                 have_audio = data["have_audio"]
                 stable = os.path.exists("materials")
                 # Checking if everything is there to continue progress
@@ -107,7 +109,7 @@ def main():
                 custom_fps = int(input())
                 if custom_fps > 0:
                     break
-                print("Enter the correct answer (integer greater than zero)")
+                print("Enter integer GREATER than zero")
             except ValueError:
                 print("Enter the correct answer (integer greater than zero)")
 
@@ -119,41 +121,56 @@ def main():
                 zoom = int(input())
                 if 10 >= zoom >= 1:
                     break
-                print("Enter the correct answer (integer between 1 and 10)")
+                print("Enter integer BETWEEN 1 and 10)")
             except ValueError:
                 print("Enter the correct answer (integer between 1 and 10)")
+
+    # If there was no save, then we will find out the visible coefficient
+    if visible == -1:
+        write_to_console(
+            "Enter the degree of 'visibility' of the main video. At 0, the video will not be visible, and at 1 "
+            "the video will simply be enlarged by several times. Most optimal value is 0.7.")
+        while True:
+            try:
+                visible = float(input())
+                if not 0 <= visible <= 1:
+                    print("Enter a real number BETWEEN 0 and 1.")
+                else:
+                    break
+            except ValueError:
+                print("Enter the correct answer (real number between 0 and 1)")
 
     # Extract audio to separate file
     if progress_stage <= 1:
         progress_stage = 1
-        save_json(progress_stage, custom_fps, have_audio, zoom)
+        save_json(progress_stage, custom_fps, have_audio, zoom, visible)
         if not save_audio():
             have_audio = False
-            save_json(progress_stage, custom_fps, have_audio, zoom)
+            save_json(progress_stage, custom_fps, have_audio, zoom, visible)
 
     # Extract video frames into separate files
     if progress_stage <= 2:
         progress_stage = 2
-        save_json(progress_stage, custom_fps, have_audio, zoom)
+        save_json(progress_stage, custom_fps, have_audio, zoom, visible)
         load_clips("original.mp4", custom_fps)
         write_to_console("Original video has been splitted.")
 
     # Video frame conversion
     if progress_stage <= 3:
         progress_stage = 3
-        save_json(progress_stage, custom_fps, have_audio, zoom)
+        save_json(progress_stage, custom_fps, have_audio, zoom, visible)
         length = len(glob.glob("materials/clips/raw**.jpg"))
         write_to_console(f"Converting clips to image in image...\n{0}/{length}")
         for count, name in enumerate(glob.glob("materials/clips/raw**.jpg")):
-            convert_to_image_in_image(name, zoom)
+            convert_to_image_in_image(name, zoom, visible)
             write_to_console(f"Converting clips to image in image...\n{count}/{length}")
         write_to_console(f"All clips successfully converted.")
 
     # Creating the final video
     if progress_stage <= 4:
         progress_stage = 4
-        save_json(progress_stage, custom_fps, have_audio, zoom)
-        write_to_console("")
+        save_json(progress_stage, custom_fps, have_audio, zoom, visible)
+        write_to_console("Collecting data for video...")
         save_video("materials/clips", "materials/audio.mp3", get_fps("original.mp4", custom_fps), have_audio)
     write_to_console("Video saved.")
     input()
@@ -253,7 +270,7 @@ def get_fps(video_file: str, custom_fps: int) -> int:
 
 
 # Convert an image (frame) to such an image, but already consisting of smaller images
-def convert_to_image_in_image(filename: str, zoom: int) -> None:
+def convert_to_image_in_image(filename: str, zoom: int, visible: float) -> None:
     original = Image.open(filename)
     image_for_pixel = Image.open(filename)
 
@@ -271,14 +288,14 @@ def convert_to_image_in_image(filename: str, zoom: int) -> None:
     data = original.getdata()
     newData = []
     for item in data:
-        newData.append(item[:-1] + (int(256 * 0.7),))
+        newData.append(item[:-1] + (int(256 * visible),))
     original.putdata(newData)
 
     image_for_pixel = image_for_pixel.convert("RGBA")
     data = image_for_pixel.getdata()
     newData = []
     for item in data:
-        newData.append(item[:-1] + (int(256 * 0.3),))
+        newData.append(item[:-1] + (int(256 * (1 - visible)),))
     image_for_pixel.putdata(newData)
 
     original = original.resize((original_width * pixel_image_width, original_height * pixel_image_height))
@@ -318,9 +335,9 @@ def save_audio() -> bool:
 # Write something to the console
 def write_to_console(text: str) -> None:
     if os.name == 'nt':
-        x = os.system('cls')
+        os.system('cls')
     else:
-        x = os.system('clear')
+        os.system('clear')
     print(text)
 
 
@@ -343,12 +360,13 @@ def confirm_working(text: str) -> bool:
 
 
 # Overwrite file with save
-def save_json(progress_stage: int, custom_fps: int, audio: bool, zoom: int) -> None:
+def save_json(progress_stage: int, custom_fps: int, audio: bool, zoom: int, visible: float) -> None:
     data = {
         "progress_stage": progress_stage,
         "fps": custom_fps,
         "have_audio": audio,
-        "zoom": zoom
+        "zoom": zoom,
+        "visible": visible
     }
     json.dump(data, open("save_file.json", "w", encoding="utf-8"))
 
