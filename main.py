@@ -6,6 +6,7 @@ import os
 import stat
 
 from datetime import timedelta
+from math import ceil
 
 from moviepy.audio.io.AudioFileClip import AudioFileClip
 from moviepy.video.io.VideoFileClip import VideoFileClip
@@ -32,6 +33,7 @@ def main():
     custom_fps = 0
     zoom = 0
     visible = -1
+    scale = 0
     have_audio = True
     if os.path.isfile("save_file.json"):
         if not os.path.exists("materials"):
@@ -49,8 +51,9 @@ def main():
                                "Do you want to continue from the saved stage?"):
                 progress_stage = data["progress_stage"]
                 custom_fps = int(data["fps"])
-                zoom = int(data["zoom"])
+                zoom = float(data["zoom"])
                 visible = float(data["visible"])
+                scale = float(data["scale"])
                 have_audio = data["have_audio"]
                 stable = os.path.exists("materials")
                 # Checking if everything is there to continue progress
@@ -115,15 +118,16 @@ def main():
 
     # If there was no save, then we will find out the zoom
     if zoom == 0:
-        write_to_console("Enter how much you want to zoom in on the final video (1 - default and min, 10 - max)")
+        write_to_console("Enter how much you want to zoom in on the final video (real number, "
+                         "1 - default and min, 10 - max)")
         while True:
             try:
-                zoom = int(input())
+                zoom = float(input())
                 if 10 >= zoom >= 1:
                     break
-                print("Enter integer BETWEEN 1 and 10)")
+                print("Enter real number BETWEEN 1 and 10)")
             except ValueError:
-                print("Enter the correct answer (integer between 1 and 10)")
+                print("Enter the correct answer (real number between 1 and 10)")
 
     # If there was no save, then we will find out the visible coefficient
     if visible == -1:
@@ -140,36 +144,64 @@ def main():
             except ValueError:
                 print("Enter the correct answer (real number between 0 and 1)")
 
+    # If there was no save, then we will find out the scale coefficient
+    if scale == 0:
+        vid = cv2.VideoCapture("original.mp4")
+        height = int(vid.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        width = int(vid.get(cv2.CAP_PROP_FRAME_WIDTH))
+        max_scale = min(height, width)
+
+        write_to_console("This program replaces each pixel in a frame with the frame itself. "
+                         "To avoid bad looking pictures, enter how many times you want to reduce the size "
+                         f"of the converting video (real number between 1 and {max_scale}). "
+                         f"Converting video size now - {width}x{height}."
+                         f" Reducing the size does not affect the original video file. ")
+
+        while True:
+            try:
+                scale = float(input())
+                if 1 <= scale <= max_scale:
+                    if confirm_working(f"The new size of the converting video is "
+                                       f"{int(width // scale)}x{int(height // scale)}. It suits you?"):
+                        break
+                    else:
+                        write_to_console("Enter how many times you want to reduce the size of the converting video "
+                                         f"(real number between 1 and {max_scale}")
+                else:
+                    print(f"Enter a real number BETWEEN 1 and {max_scale}.")
+            except ValueError:
+                print(f"Enter the correct answer (real number between 1 and {max_scale})")
+
     # Extract audio to separate file
     if progress_stage <= 1:
         progress_stage = 1
-        save_json(progress_stage, custom_fps, have_audio, zoom, visible)
+        save_json(progress_stage, custom_fps, have_audio, zoom, visible, scale)
         if not save_audio():
             have_audio = False
-            save_json(progress_stage, custom_fps, have_audio, zoom, visible)
+            save_json(progress_stage, custom_fps, have_audio, zoom, visible, scale)
 
     # Extract video frames into separate files
     if progress_stage <= 2:
         progress_stage = 2
-        save_json(progress_stage, custom_fps, have_audio, zoom, visible)
+        save_json(progress_stage, custom_fps, have_audio, zoom, visible, scale)
         load_clips("original.mp4", custom_fps)
         write_to_console("Original video has been splitted.")
 
     # Video frame conversion
     if progress_stage <= 3:
         progress_stage = 3
-        save_json(progress_stage, custom_fps, have_audio, zoom, visible)
+        save_json(progress_stage, custom_fps, have_audio, zoom, visible, scale)
         length = len(glob.glob("materials/clips/raw**.jpg"))
         write_to_console(f"Converting clips to image in image...\n{0}/{length}")
         for count, name in enumerate(glob.glob("materials/clips/raw**.jpg")):
-            convert_to_image_in_image(name, zoom, visible)
+            convert_to_image_in_image(name, zoom, visible, scale)
             write_to_console(f"Converting clips to image in image...\n{count}/{length}")
         write_to_console(f"All clips successfully converted.")
 
     # Creating the final video
     if progress_stage <= 4:
         progress_stage = 4
-        save_json(progress_stage, custom_fps, have_audio, zoom, visible)
+        save_json(progress_stage, custom_fps, have_audio, zoom, visible, scale)
         write_to_console("Collecting data for video...")
         save_video("materials/clips", "materials/audio.mp3", get_fps("original.mp4", custom_fps), have_audio)
     write_to_console("Video saved.")
@@ -270,11 +302,12 @@ def get_fps(video_file: str, custom_fps: int) -> int:
 
 
 # Convert an image (frame) to such an image, but already consisting of smaller images
-def convert_to_image_in_image(filename: str, zoom: int, visible: float) -> None:
+def convert_to_image_in_image(filename: str, zoom: float, visible: float, scale: float) -> None:
     original = Image.open(filename)
     image_for_pixel = Image.open(filename)
 
-    original = crop_center(original, original.size[0] // zoom, original.size[1] // zoom)
+    original = crop_center(original, ceil(original.size[0] // zoom), ceil(original.size[1] // zoom))
+    original = original.resize((ceil(original.size[0] / scale), ceil(original.size[1] / scale)))
     original_width, original_height = original.size
     pixel_image_width, pixel_image_height = image_for_pixel.size
 
@@ -360,13 +393,14 @@ def confirm_working(text: str) -> bool:
 
 
 # Overwrite file with save
-def save_json(progress_stage: int, custom_fps: int, audio: bool, zoom: int, visible: float) -> None:
+def save_json(progress_stage: int, custom_fps: int, audio: bool, zoom: float, visible: float, scale: float) -> None:
     data = {
         "progress_stage": progress_stage,
         "fps": custom_fps,
         "have_audio": audio,
         "zoom": zoom,
-        "visible": visible
+        "visible": visible,
+        "scale": scale
     }
     json.dump(data, open("save_file.json", "w", encoding="utf-8"))
 
