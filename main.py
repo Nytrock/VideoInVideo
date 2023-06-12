@@ -168,7 +168,7 @@ def main():
                         break
                     else:
                         write_to_console("Enter how many times you want to reduce the size of the converting video "
-                                         f"(real number between 1 and {max_scale}")
+                                         f"(real number between 1 and {max_scale})")
                 else:
                     print(f"Enter a real number BETWEEN 1 and {max_scale}.")
             except ValueError:
