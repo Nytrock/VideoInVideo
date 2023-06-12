@@ -35,6 +35,7 @@ def main():
     visible = -1
     scale = 0
     have_audio = True
+    name_result = ""
     if os.path.isfile("save_file.json"):
         if not os.path.exists("materials"):
             # If there is a save file, but there is no folder with materials, we start all over again
@@ -54,6 +55,7 @@ def main():
                 zoom = float(data["zoom"])
                 visible = float(data["visible"])
                 scale = float(data["scale"])
+                name_result = data["name_result"]
                 have_audio = data["have_audio"]
                 stable = os.path.exists("materials")
                 # Checking if everything is there to continue progress
@@ -172,25 +174,33 @@ def main():
             except ValueError:
                 print(f"Enter the correct answer (real number between 1 and {max_scale})")
 
+    # If there was no save, then we get desired title for the final video
+    if name_result == "":
+        write_to_console("Enter the desired title for the final video.")
+        name_result = input()
+        while name_result == "" or name_result == "original":
+            print("Enter the correct name.")
+            name_result = input()
+
     # Extract audio to separate file
     if progress_stage <= 1:
         progress_stage = 1
-        save_json(progress_stage, custom_fps, have_audio, zoom, visible, scale)
+        save_json(progress_stage, custom_fps, have_audio, zoom, visible, scale, name_result)
         if not save_audio():
             have_audio = False
-            save_json(progress_stage, custom_fps, have_audio, zoom, visible, scale)
+            save_json(progress_stage, custom_fps, have_audio, zoom, visible, scale, name_result)
 
     # Extract video frames into separate files
     if progress_stage <= 2:
         progress_stage = 2
-        save_json(progress_stage, custom_fps, have_audio, zoom, visible, scale)
+        save_json(progress_stage, custom_fps, have_audio, zoom, visible, scale, name_result)
         load_clips("original.mp4", custom_fps)
         write_to_console("Original video has been splitted.")
 
     # Video frame conversion
     if progress_stage <= 3:
         progress_stage = 3
-        save_json(progress_stage, custom_fps, have_audio, zoom, visible, scale)
+        save_json(progress_stage, custom_fps, have_audio, zoom, visible, scale, name_result)
         length = len(glob.glob("materials/clips/raw**.jpg"))
         write_to_console(f"Converting clips to image in image...\n{0}/{length}")
         for count, name in enumerate(glob.glob("materials/clips/raw**.jpg")):
@@ -201,9 +211,10 @@ def main():
     # Creating the final video
     if progress_stage <= 4:
         progress_stage = 4
-        save_json(progress_stage, custom_fps, have_audio, zoom, visible, scale)
+        save_json(progress_stage, custom_fps, have_audio, zoom, visible, scale, name_result)
         write_to_console("Collecting data for video...")
-        save_video("materials/clips", "materials/audio.mp3", get_fps("original.mp4", custom_fps), have_audio)
+        save_video("materials/clips", "materials/audio.mp3", get_fps("original.mp4", custom_fps),
+                   have_audio, name_result)
     write_to_console("Video saved.")
     input()
 
@@ -222,7 +233,7 @@ def clean_trash(path: str) -> None:
 
 
 # Create video from individual frames and audio and save it
-def save_video(image_folder: str, audio_file: str, fps: int, have_audio: bool) -> None:
+def save_video(image_folder: str, audio_file: str, fps: int, have_audio: bool, name: str) -> None:
     image_files = [os.path.abspath(os.path.join(image_folder, img))
                    for img in os.listdir(image_folder)
                    if img.endswith(".jpg")]
@@ -233,7 +244,8 @@ def save_video(image_folder: str, audio_file: str, fps: int, have_audio: bool) -
         audio_clip = AudioFileClip(audio_file)
         clip = clip.set_audio(audio_clip)
     print("Write to file...")
-    clip.write_videofile("result.mp4")
+    final_name = name + ".mp4"
+    clip.write_videofile(final_name)
 
 
 # Formatting timedelta objects, remove microseconds and keep milliseconds
@@ -393,14 +405,16 @@ def confirm_working(text: str) -> bool:
 
 
 # Overwrite file with save
-def save_json(progress_stage: int, custom_fps: int, audio: bool, zoom: float, visible: float, scale: float) -> None:
+def save_json(progress_stage: int, custom_fps: int, audio: bool, zoom: float, visible: float,
+              scale: float, name_result: str) -> None:
     data = {
         "progress_stage": progress_stage,
         "fps": custom_fps,
         "have_audio": audio,
         "zoom": zoom,
         "visible": visible,
-        "scale": scale
+        "scale": scale,
+        "name_result": name_result
     }
     json.dump(data, open("save_file.json", "w", encoding="utf-8"))
 
