@@ -178,7 +178,7 @@ def main():
     if name_result == "":
         write_to_console("Enter the desired title for the final video.")
         name_result = input()
-        while name_result == "" or name_result == "original":
+        while name_result == "" or name_result == "original" or not is_correct(name_result, "\\|/*<>?:"):
             print("Enter the correct name.")
             name_result = input()
 
@@ -217,6 +217,14 @@ def main():
                    have_audio, name_result)
     write_to_console("Video saved.")
     input()
+
+
+# Checking the file name for errors
+def is_correct(filename, forbidden_symbols):
+    for i in forbidden_symbols:
+        if i in filename:
+            return False
+    return True
 
 
 # Removing all files from the "materials" folder
