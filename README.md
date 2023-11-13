@@ -41,7 +41,7 @@ you can artificially interrupt the program, the next time you start it, it will 
 - Clone the repository
 
 ```shell
-git clone https://github.com/Nytrock/Video_In_Video.git
+git clone https://github.com/Nytrock/VideoInVideo.git
 ```
 
 - Install dependencies with requirements.txt
