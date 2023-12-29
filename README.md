@@ -1,5 +1,4 @@
-<a href="https://youtu.be/a0avir3IQL4" align="center"><img src="Logo.jpg" alt="Rickroll made up of rickrolls"></a>
-<p align="center"><i>Click on the preview to see an example of how the program works. The preview itself is one of the frames of the video.</i></p>
+<p align="center"><img src="Logo.png" alt="Logo" width="256"></p>
 
 # Video in video
 Have you ever dreamed of creating an image that would not consist of solid pixels, but of smaller images? Well I see your dreams strongly
